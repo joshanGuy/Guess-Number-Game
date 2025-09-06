@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Number Guessing Game</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #111;
+      color: #eee;
+      padding: 20px;
+    }
+    #log {
+      white-space: pre-line;
+      margin-bottom: 1em;
+    }
+    .green { color: lime; }
+    .red { color: red; }
+    .yellow { color: yellow; }
+    .blue { color: skyblue; }
+    input, button {
+      padding: 5px 10px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎯 Number Guessing Game</h1>
+  <div id="log"></div>
+
+  <div>
+    <input id="player" placeholder="Player name" />
+    <button onclick="startGame()">Start Game</button>
+  </div>
+  <div style="margin-top:10px;">
+    <input id="guess" type="number" placeholder="Enter guess" />
+    <button onclick="makeGuess()">Guess</button>
+    <button onclick="endGame()">End Game</button>
+  </div>
+
+  <script>
+    const API = "guessnumbergame-fzcre5d3f0ckh5hn.ukwest-01.azurewebsites.net"; // change to your Azure URL later
+    let currentPlayer = null;
+
+    const sounds = {
+      victory: new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"),
+      wrong: new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"),
+      elimination: new Audio("https://actions.google.com/sounds/v1/cartoon/clang.ogg"),
+      game_start: new Audio("https://actions.google.com/sounds/v1/cartoon/slide_whistle.ogg"),
+      round_start: new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg"),
+      game_end: new Audio("https://actions.google.com/sounds/v1/cartoon/woodpecker.ogg")
+    };
+
+    function logMessage(msg, color = "white") {
+      const log = document.getElementById("log");
+      const span = document.createElement("div");
+      span.className = color;
+      span.textContent = msg;
+      log.appendChild(span);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    async function startGame() {
+      currentPlayer = document.getElementById("player").value;
+      if (!currentPlayer) return alert("Enter player name");
+      const res = await fetch(API + "/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player: currentPlayer, mode: "1", difficulty: "2" })
+      });
+      const data = await res.json();
+      logMessage(data.message, "blue");
+      if (data.sound && sounds[data.sound]) sounds[data.sound].play();
+    }
+
+    async function makeGuess() {
+      if (!currentPlayer) return alert("Start a game first!");
+      const guess = document.getElementById("guess").value;
+      const res = await fetch(API + "/guess", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player: currentPlayer, guess: guess })
+      });
+      const data = await res.json();
+      if (data.error) {
+        logMessage(data.error, "red");
+        return;
+      }
+      if (data.message) {
+        let color = "white";
+        if (data.result === "correct") color = "green";
+        if (data.result === "too_high" || data.result === "too_low") color = "yellow";
+        if (data.result === "timeout") color = "red";
+        logMessage(data.message, color);
+      }
+      if (data.sound && sounds[data.sound]) sounds[data.sound].play();
+    }
+
+    async function endGame() {
+      if (!currentPlayer) return;
+      const res = await fetch(API + "/end", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player: currentPlayer })
+      });
+      const data = await res.json();
+      logMessage("Game ended. Total Score: " + data.total_score, "green");
+      if (data.sound && sounds[data.sound]) sounds[data.sound].play();
+      currentPlayer = null;
+    }
+  </script>
+</body>
+</html>
